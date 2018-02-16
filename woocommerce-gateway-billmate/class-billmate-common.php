@@ -17,7 +17,7 @@ class BillmateCommon {
         add_action('wp_ajax_nopriv_getaddress',array($this,'getaddress'));
         add_action('wp_ajax_getaddress',array($this,'getaddress'));
         add_action('woocommerce_checkout_before_customer_details',array($this,'get_address_fields'));
-		add_action( 'woocommerce_order_status_completed',array($this,'activate_invoice'));
+		add_action( 'woocommerce_order_status_' . apply_filters('woocommerce_billmate_order_status_activation', 'completed'),array($this,'activate_invoice'));
 		add_filter('woocommerce_payment_successful_result',array($this,'clear_pno'));
 
 
