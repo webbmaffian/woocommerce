@@ -721,6 +721,8 @@ parse_str($_POST['post_data'], $datatemp);
 		} else {
 			$shippingAndBilling = false;
 		}
+		
+		$addressNotMatched = apply_filters('woocommerce_billmate_address_not_matched', $addressNotMatched, $addr);
 
 		global $woocommerce;
 
@@ -901,6 +903,8 @@ parse_str($_POST['post_data'], $datatemp);
 		} else {
 			$shippingAndBilling = false;
 		}
+		
+		$addressNotMatched = apply_filters('woocommerce_billmate_address_not_matched', $addressNotMatched, $addr);
 
 		global $woocommerce;
 
