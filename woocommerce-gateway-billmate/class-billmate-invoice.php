@@ -215,6 +215,16 @@ class WC_Gateway_Billmate_Invoice extends WC_Gateway_Billmate {
 								'default' => '',
 								'options' => $classes_options
 			),
+			'method' => array(
+								'title' => __('Method', 'billmate'),
+								'type' => 'select',
+								'description' => __('Which invoicing method should be used?','billmate'),
+								'default' => '1',
+								'options' => array(
+									'1' => __('Factoring', 'billmate'),
+									'2' => __('Invoice Service', 'billmate')
+								)
+			),
 			'testmode' => array(
 							'title' => __( 'Test Mode', 'billmate' ),
 							'type' => 'checkbox',
