@@ -41,6 +41,7 @@ class WC_Gateway_Billmate_Invoice extends WC_Gateway_Billmate {
 		$this->invoice_fee_tax_class = (isset( $this->settings['billmate_invoice_fee_tax_class'] ) ) ? $this->settings['billmate_invoice_fee_tax_class'] : '';
 		$this->allowed_countries 		= ( isset( $this->settings['billmateinvoice_allowed_countries'] ) && !empty($this->settings['billmateinvoice_allowed_countries'])) ? $this->settings['billmateinvoice_allowed_countries'] : array('SE');
 		$this->order_status = (isset($this->settings['order_status'])) ? $this->settings['order_status'] : false;
+		$this->service_fallback = (empty($this->settings['service_fallback']) ? false : $this->settings['service_fallback'] === 'yes');
 
 		//if ( $this->handlingfee == "") $this->handlingfee = 0;
 		//if ( $this->handlingfee_tax == "") $this->handlingfee_tax = 0;
@@ -224,6 +225,12 @@ class WC_Gateway_Billmate_Invoice extends WC_Gateway_Billmate {
 									'1' => __('Factoring', 'billmate'),
 									'2' => __('Invoice Service', 'billmate')
 								)
+			),
+			'service_fallback' => array(
+								'title' => __( 'Fallback', 'billmate' ),
+								'type' => 'checkbox',
+								'label' => __( 'Fall back to Invoice Service', 'billmate' ),
+								'default' => 'no'
 			),
 			'testmode' => array(
 							'title' => __( 'Test Mode', 'billmate' ),
@@ -1184,9 +1191,37 @@ parse_str($_POST['post_data'], $datatemp);
         $orderValues['Customer']['nr'] = $billmateOrder->getCustomerNrData();
         $orderValues['Customer']['Billing'] = $billmateOrder->getCustomerBillingData();
         $orderValues['Customer']['Shipping'] = $billmateOrder->getCustomerShippingData();
-
-		try {
+        
+			try {
+				return $this->add_payment($orderValues, $order, $k);
+			}
+			catch(Exception $e) {
+				$new_method = 2;
+				
+				if($this->service_fallback && $new_method != $orderValues['PaymentData']['method']) {
+					$order->add_order_note(sprintf(__('Billmate error %s for method %d, trying method %d instead.', 'billmate'), $e->getCode(), $orderValues['PaymentData']['method'], $new_method));
+					$orderValues['PaymentData']['method'] = $new_method;
+					
+					return $this->add_payment($orderValues, $order, $k, true);
+				}
+				else {
+					throw $e;
+				}
+			}
+    }
+    
+    
+    /*
+     * Send payment request to Billmate
+     */
+    protected function add_payment($orderValues = array(), $order = null, $k = null, $is_retry = false) {
+			global $woocommerce;
+			
+			$order_id = $order->id;
+			
+			try {
 			$result = $k->addPayment($orderValues);
+			
 			if( !is_array($result)){
 				throw new Exception($result);
 			}
@@ -1198,6 +1233,10 @@ parse_str($_POST['post_data'], $datatemp);
                     case '2403':
                     case '2404':
                     case '2405':
+                    		if($this->service_fallback && !$is_retry) {
+                    			throw new Exception($result['message'],$result['code']);
+                    		}
+                    		
                         // Address not matching
                         if(!isset($_GET['pay_for_order'])) {
                             $this->getAddress();
@@ -1293,6 +1332,10 @@ parse_str($_POST['post_data'], $datatemp);
             }
 
         } catch(Exception $e) {
+        	if($this->service_fallback && !$is_retry) {
+        		throw $e;
+        	}
+        	
             //The purchase was denied or something went wrong, print the message:
             if(!isset($_GET['pay_for_order'])) {
                 if(version_compare(WC_VERSION,'2.4.0','<')) {
@@ -1309,7 +1352,7 @@ parse_str($_POST['post_data'], $datatemp);
                 echo '<ul class="woocommerce-error"><li>'.sprintf(__('%s (Error code: %s)', 'billmate'), utf8_encode($e->getMessage()), $e->getCode() ).'<script type="text/javascript">jQuery("#billmategeturl").remove(); </script></li></ul>';
             }
         }
-    }
+		}
 
 
     /*
