@@ -595,7 +595,9 @@ parse_str($_POST['post_data'], $datatemp);
 
 	public function validate_fields()
 	{
-
+		if(empty($_POST['valid_email_it_is_invoice'])) {
+      throw new Exception('Vänligen acceptera Billmates köpvillkor för att kunna välja betalning med faktura.');
+		}
 	}
 
 	public function getAddress( )
@@ -1005,11 +1007,6 @@ parse_str($_POST['post_data'], $datatemp);
         $billmateOrder = new BillmateOrder($order);
         $billmateOrder->setAllowedCountries($countries);
 
-		if(empty($_POST['valid_email_it_is_invoice'])){
-            wc_bm_errors( sprintf( __('Please confirm the email %s is correct. The email will be used for invoicing.', 'billmate'), $order->billing_email ));
-            return;
-		}
-
 		// Collect the dob different depending on country
 		if ( $this->shop_country == 'NL' || $this->shop_country == 'DE' ) :
 			$billmate_pno_day 			= isset($_POST['billmate_invo_date_of_birth_day']) ? $this->woocommerce_clean($_POST['billmate_invo_date_of_birth_day']) : '';
@@ -1214,6 +1211,9 @@ parse_str($_POST['post_data'], $datatemp);
 			global $woocommerce;
 			
 			$order_id = $order->id;
+			$orderValues = apply_filters('woocommerce_billmate_order_values', $orderValues, $order, $k, $is_retry);
+			
+			error_log(print_r($orderValues, true));
 			
 			try {
 			$result = $k->addPayment($orderValues);
