@@ -17,14 +17,16 @@ class BillmateCommon {
         add_action('wp_ajax_nopriv_getaddress',array($this,'getaddress'));
         add_action('wp_ajax_getaddress',array($this,'getaddress'));
         add_action('woocommerce_checkout_before_customer_details',array($this,'get_address_fields'));
-		add_action( 'woocommerce_order_status_' . apply_filters('woocommerce_billmate_order_status_activation', 'completed'),array($this,'activate_invoice'));
+		add_action( 'woocommerce_order_status_changed',array($this,'activate_invoice'), 10, 3);
 		add_filter('woocommerce_payment_successful_result',array($this,'clear_pno'));
 
 
 	}
 
-	public function activate_invoice($order_id)
+	public function activate_invoice($order_id, $status_from, $status_to)
 	{
+		if(!in_array($status_to, apply_filters('woocommerce_billmate_activate_invoice_order_statuses', array('completed')))) return;
+		
 		if(get_option('billmate_common_activateonstatus') == 'active') {
 
             $orderNote = "";
