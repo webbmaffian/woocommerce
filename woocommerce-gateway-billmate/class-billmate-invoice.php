@@ -586,6 +586,8 @@ parse_str($_POST['post_data'], $datatemp);
 
 				</p>
 			<?php endif; ?>
+			
+			<?php do_action('woocommerce_billmate_after_payment_method', $this->id); ?>
 
 		</fieldset>
 		<?php
