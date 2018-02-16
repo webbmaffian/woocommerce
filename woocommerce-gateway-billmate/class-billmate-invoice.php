@@ -577,12 +577,6 @@ if(!empty($_POST['post_data'])){
 parse_str($_POST['post_data'], $datatemp);
 }
 ?>
-		<div class="clear"></div>
-			<p class="form-row">
-				<input type="checkbox" class="input-checkbox" checked="checked" value="yes" name="valid_email_it_is_invoice" id="valid_email_it_is_invoice" style="float:left;margin-top:6px" />
-				<label><?php echo sprintf(__('My e-mail%s is correct och and may be used for billing. I confirm the ', 'billmate'), (strlen($datatemp['billing_email']) > 0) ? ', '.$datatemp['billing_email'].',' : ' '); ?><a class="billmateCheckoutTermLink" href="https://billmate.se/billmate/?cmd=villkor" onclick="window.open(this.href,'targetWindow','toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes,width=600,height=650');return false;"><?php echo __('terms of invoice','billmate'); ?></a> <?php echo __('and accept the liability.','billmate') ?></label>
-			</p>
-		<div class="clear"></div>
 
 			<?php if ( $this->shop_country == 'DE' && $this->de_consent_terms == 'yes' ) : ?>
 				<p class="form-row">
@@ -1620,6 +1614,28 @@ class WC_Gateway_Billmate_Invoice_Extra {
 		// Chcek Billmate specific fields on Checkout
 		//add_action('woocommerce_checkout_process', array(&$this, 'billmate_invoice_checkout_field_process'));
 		add_action('woocommerce_cart_calculate_fees', array(&$this, 'billmate_invoice_checkout_field_process'));
+		
+		add_action('woocommerce_review_order_before_submit', array($this, 'add_terms_checkbox'));
+	}
+	
+	public function add_terms_checkbox() {
+		if(WC()->session->get('chosen_payment_method') !== 'billmate_invoice') return;
+		
+		if(isset($_POST['post_data'])) {
+			parse_str($_POST['post_data'], $post_data);
+		}
+		else {
+			$post_data = $_POST;
+		}
+		
+		?>
+			<p class="form-row">
+				<label>
+					<input type="checkbox" class="input-checkbox" checked="checked" value="yes" name="valid_email_it_is_invoice" id="valid_email_it_is_invoice" <?php checked($post_data['valid_email_it_is_invoice'], 'yes'); ?> />
+					<span>Jag accepterar <a rel="nofollow" target="_blank" href="https://billmate.se/billmate/?cmd=villkor">Billmates köpvillkor</a> för fakturabetalning</span>
+				</label>
+			</p>
+		<?php
 	}
 
 	/**
