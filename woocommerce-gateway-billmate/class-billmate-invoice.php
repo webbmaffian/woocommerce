@@ -1633,7 +1633,7 @@ class WC_Gateway_Billmate_Invoice_Extra {
 		?>
 			<p class="form-row">
 				<label>
-					<input type="checkbox" class="input-checkbox" checked="checked" value="yes" name="valid_email_it_is_invoice" id="valid_email_it_is_invoice" <?php checked($post_data['valid_email_it_is_invoice'], 'yes'); ?> />
+					<input type="checkbox" class="input-checkbox" value="yes" name="valid_email_it_is_invoice" id="valid_email_it_is_invoice" <?php checked($post_data['valid_email_it_is_invoice'], 'yes'); ?> />
 					<span>Jag accepterar <a rel="nofollow" target="_blank" href="https://billmate.se/billmate/?cmd=villkor">Billmates köpvillkor</a> för fakturabetalning</span>
 				</label>
 			</p>
