@@ -3,7 +3,7 @@
 Plugin Name: WooCommerce Billmate Gateway
 Plugin URI: http://woothemes.com/woocommerce
 Description: Receive payments on your WooCommerce store via Billmate. Invoice, partpayment, credit/debit card and direct bank transfers. Secure and 100&#37; free plugin.
-Version: 3.1.1
+Version: 3.2.0
 Author: Billmate
 Text Domain: billmate
 Author URI: https://billmate.se
@@ -85,6 +85,8 @@ function wordfence_notice(){
 register_activation_hook(__FILE__,'activate_billmate_gateway');
 
 add_action( 'admin_init', 'maby_update_billmate_gateway' );
+add_action( 'admin_notices', 'BillmateAdminNotice::show_notices');
+
 function maby_update_billmate_gateway() {
     if(version_compare(get_option("woocommerce_billmate_version"), BILLPLUGIN_VERSION, '<')) {
         update_billmate_gateway();
@@ -142,74 +144,80 @@ function billmate_gateway_admin_info_message($message = "") {
     }
 }
 
-add_action( 'update_option_woocommerce_billmate_checkout_settings', 'billmate_gateway_admin_checkout_settings_update');
-function billmate_gateway_admin_checkout_settings_update() {
 
-    // Display admin message when update Billmate Checkout settings and one or more setting need adjustments
+/*
+ * Remind administrator about settings that need to be correctly defined when Billmate is active
+ */
+add_action( 'admin_init', 'billmate_settings_nag');
+function billmate_settings_nag() {
+    // Billmate payment method is enabled but id or secret is not defined
+    $billmateInvoiceSettings        = get_option('woocommerce_billmate_invoice_settings');
+    $billmatePartpaymentSettings    = get_option('woocommerce_billmate_partpayment_settings');
+    $billmateCardpaySettings        = get_option('woocommerce_billmate_cardpay_settings');
+    $billmateBankpaySettings        = get_option('woocommerce_billmate_bankpay_settings');
+    $checkoutSettings               = get_option("woocommerce_billmate_checkout_settings", array());
+    if (((isset($billmateInvoiceSettings['enabled']) && $billmateInvoiceSettings['enabled'] == 'yes')
+            || (isset($billmatePartpaymentSettings['enabled']) && $billmatePartpaymentSettings['enabled'] == 'yes')
+            || (isset($billmateCardpaySettings['enabled']) && $billmateCardpaySettings['enabled'] == 'yes')
+            || (isset($billmateBankpaySettings['enabled']) && $billmateBankpaySettings['enabled'] == 'yes')
+            || (isset($checkoutSettings['enabled']) && $checkoutSettings['enabled'] == 'yes'))
+        && (get_option('billmate_common_eid') == ''
+            || get_option('billmate_common_secret') == '')
+    ) {
+        BillmateAdminNotice::add_warning( __( 'Billmate id or secret are not defined', 'billmate' ), admin_url( 'options-general.php?page=billmate-settings' ), __( 'Settings' ) );
+    }
+}
 
+/**
+ * Remind administrator about settings that need to be correctly defined when Billmate Checkout is active
+ */
+add_action( 'admin_init', 'billmate_checkout_settings_nag');
+function billmate_checkout_settings_nag() {
     $checkoutSettings = get_option("woocommerce_billmate_checkout_settings", array());
 
     if(isset($checkoutSettings['enabled']) AND $checkoutSettings['enabled'] == 'yes') {
-        // Billmate checkout is enabled
         if(!isset($checkoutSettings['checkout_url']) OR intval($checkoutSettings['checkout_url']) != $checkoutSettings['checkout_url'] OR intval($checkoutSettings['checkout_url']) < 1) {
-            billmate_gateway_admin_error_message('Billmate checkut must have Billmate Checkout page to be able to function');
+            $link_url = get_admin_url().'admin.php?page=wc-settings&tab=checkout&section=billmate_checkout';
+            BillmateAdminNotice::add_error( __( 'Billmate Checkout must have a Billmate Checkout page to be able to function', 'billmate' ), $link_url, __( 'Settings' ) );
         }
 
         if(!isset($checkoutSettings['terms_url']) OR intval($checkoutSettings['terms_url']) != $checkoutSettings['terms_url'] OR intval($checkoutSettings['terms_url']) < 1) {
-            billmate_gateway_admin_error_message('Billmate Checkout must have a terms page to be able to function');
+            $link_url = get_admin_url().'admin.php?page=wc-settings&tab=checkout&section=billmate_checkout';
+            BillmateAdminNotice::add_error( __( 'Billmate Checkout must have a terms page to be able to function', 'billmate' ), $link_url, __( 'Settings' ) );
+        }
+
+        if (isset($checkoutSettings['testmode']) AND $checkoutSettings['testmode'] == 'yes') {
+            $link_url = get_admin_url().'admin.php?page=wc-settings&tab=checkout&section=billmate_checkout';
+            BillmateAdminNotice::add_warning( __( 'Billmate Checkout is currently in test-mode', 'billmate' ), $link_url, __( 'Settings' ) );
         }
 
         // Check supported language is set
         $wpLanguage = strtolower(current(explode('_',get_locale())));
         if($wpLanguage != "sv") {
-            billmate_gateway_admin_error_message('Billmate Checkout need the language to be set as SV to be able to function');
-        }
 
-        // Get avaliable payment methods and check if is enabled in store. If available and not enabled, display admin messages
-        $availablePaymentMethods = array();
-        $billmate = new Billmate(get_option('billmate_common_eid'), get_option('billmate_common_secret'), false);
-        $accountInfo =  $billmate->getAccountinfo(array());
-        if(isset($accountInfo) AND is_array($accountInfo) AND isset($accountInfo['paymentoptions']) AND is_array($accountInfo['paymentoptions'])) {
-            foreach($accountInfo['paymentoptions'] AS $paymentoption) {
-                if(isset($paymentoption['method'])) {
-                    $availablePaymentMethods[$paymentoption['method']] = $paymentoption['method'];
+            // When WPML is active Do not display language note in admin
+            $wpml_is_active = false;
+            $active_plugins = get_option( 'active_plugins', array() );
+            foreach ($active_plugins AS $_plugin) {
+                if (substr(strtolower($_plugin), 0, 5) == 'wpml-') {
+                    $wpml_is_active = true;
+                    break;
                 }
             }
+
+            if ($wpml_is_active ==  false) {
+                $link_url = get_admin_url().'options-general.php';
+                BillmateAdminNotice::add_error( __( 'Billmate Checkout need the website language to be set as SV (Swedish) to be able to function', 'billmate' ), $link_url, __( 'Settings' ) );
+            }
         }
 
-        $billmateInvoiceSettings = get_option('woocommerce_billmate_invoice_settings');
-        $billmatePartpaymentSettings = get_option('woocommerce_billmate_partpayment_settings');
-        $billmateCardpaySettings = get_option('woocommerce_billmate_cardpay_settings');
-        $billmateBankpaySettings = get_option('woocommerce_billmate_bankpay_settings');
-
-        $enabledPaymentMethods = array(
-            "1" => array(
-                "enabled" => ((isset($billmateInvoiceSettings['enabled']) AND $billmateInvoiceSettings['enabled'] == 'yes') ? 'yes' : 'no'),
-                "method" => "1",
-                "name" => "Billmate Invoice"
-            ),
-            "4" => array(
-                "enabled" => ((isset($billmatePartpaymentSettings['enabled']) AND $billmatePartpaymentSettings['enabled'] == 'yes') ? 'yes' : 'no'),
-                "method" => "4",
-                "name" => "Billmate partpayment"
-            ),
-            "8" => array(
-                "enabled" => ((isset($billmateCardpaySettings['enabled']) AND $billmateCardpaySettings['enabled'] == 'yes') ? 'yes' : 'no'),
-                "method" => "8",
-                "name" => "Billmate Cardpayment"
-            ),
-            "16" => array(
-                "enabled" => ((isset($billmateBankpaySettings['enabled']) AND $billmateBankpaySettings['enabled'] == 'yes') ? 'yes' : 'no'),
-                "method" => "16",
-                "name" => "Billmate Bankpayment"
-            )
-        );
-
-        foreach($enabledPaymentMethods AS $method) {
-            if((!isset($method['enabled']) OR $method['enabled'] != 'yes') AND in_array($method['method'], $availablePaymentMethods)) {
-                // Payment method is enabled and not active
-                billmate_gateway_admin_error_message("Billmate Checkout need ".$method['name']." to be activated to be able to function");
-            }
+        /**
+         * WooCommerce price decimals
+         * Need 2 to prevent miscalculation
+         */
+        if ( wc_get_price_decimals() < 2 ) {
+            $link_url = get_admin_url().'admin.php?page=wc-settings';
+            BillmateAdminNotice::add_info( __( 'WooCommerce need to have set prices with 2 decimals to ensure prices are correctly when sent to Billmate', 'billmate' ) , $link_url, __( 'Settings' ) );
         }
     }
 }
@@ -726,6 +734,80 @@ function init_billmate_gateway() {
                         $billmateOrder = $k->getPaymentinfo(array('number' => $billmateOrderNumber));
                     }
 
+                    /**
+                     * Update customer billing and shipping address on store order from Billmate Checkout order
+                     */
+                    if (    $checkout == true
+                            && isset($billmateOrder['Customer'])
+                            && is_array($billmateOrder['Customer'])
+                            && count($billmateOrder['Customer']) > 0
+                    ) {
+                        if (isset($billmateOrder['Customer']['Billing'])) {
+                            $billmateOrder['Customer']['Billing'] = array_map("utf8_decode",$billmateOrder['Customer']['Billing']);
+                        }
+
+                        if (isset($billmateOrder['Customer']['Shipping'])) {
+                            $billmateOrder['Customer']['Shipping'] = array_map("utf8_decode",$billmateOrder['Customer']['Shipping']);
+                        }
+
+                        $billing_address = array(
+                            'first_name' => $billmateOrder['Customer']['Billing']['firstname'],
+                            'last_name'  => $billmateOrder['Customer']['Billing']['lastname'],
+                            'company'    => (isset($billmateOrder['Customer']['Billing']['company']) ? $billmateOrder['Customer']['Billing']['company'] : ''),
+                            'email'      => $billmateOrder['Customer']['Billing']['email'],
+                            'phone'      => $billmateOrder['Customer']['Billing']['phone'],
+                            'address_1'  => $billmateOrder['Customer']['Billing']['street'],
+                            'address_2'  => (isset($billmateOrder['Customer']['Billing']['street2']) ? $billmateOrder['Customer']['Billing']['street2'] : ''),
+                            'city'       => $billmateOrder['Customer']['Billing']['city'],
+                            'state'      => '',
+                            'postcode'   => $billmateOrder['Customer']['Billing']['zip'],
+                            'country'    => $billmateOrder['Customer']['Billing']['country']
+                        );
+
+                        if( isset($billmateOrder['Customer']['Shipping'])
+                            && is_array($billmateOrder['Customer']['Shipping'])
+                            && count($billmateOrder['Customer']['Shipping']) > 0
+                        ) {
+                            $shipping_address = array(
+                                'first_name' => $billmateOrder['Customer']['Shipping']['firstname'],
+                                'last_name'  => $billmateOrder['Customer']['Shipping']['lastname'],
+                                'company'    => (isset($billmateOrder['Customer']['Shipping']['company']) ? $billmateOrder['Customer']['Shipping']['company'] : ''),
+                                'email'      => $billmateOrder['Customer']['Shipping']['email'],
+                                'phone'      => $billmateOrder['Customer']['Shipping']['phone'],
+                                'address_1'  => $billmateOrder['Customer']['Shipping']['street'],
+                                'address_2'  => (isset($billmateOrder['Customer']['Shipping']['street2']) ? $billmateOrder['Customer']['Shipping']['street2'] : ''),
+                                'city'       => $billmateOrder['Customer']['Shipping']['city'],
+                                'state'      => '',
+                                'postcode'   => $billmateOrder['Customer']['Shipping']['zip'],
+                                'country'    => $billmateOrder['Customer']['Shipping']['country']
+                            );
+                        } else {
+                            $shipping_address = $billing_address;
+                        }
+
+                        $billingEmail = isset($billmateOrder['Customer']['Billing']['email']) ? sanitize_text_field($billmateOrder['Customer']['Billing']['email']) : '';
+                        $isEmail = is_email($billingEmail);
+                        if ($isEmail != false AND is_string($isEmail) AND $isEmail == $billingEmail) {
+                            // Valid email
+                            $order->set_address($billing_address,'billing');
+                            $order->set_address($shipping_address,'shipping');
+                        } else {
+                            if (version_compare($wp_version, '2.8.0', '>=') AND version_compare(WC_VERSION, '3.1.0', '>=')) {
+                                // Prevent error when saving address with invalid email
+                                if (isset($billing_address['email'])) {
+                                    unset($billing_address['email']);
+                                }
+
+                                $order->set_address($billing_address, 'billing');
+                                $order->set_address($shipping_address, 'shipping');
+                                update_metadata('post', $order->get_id(), '_billing_email', $billingEmail);
+                            } else {
+                                $order->set_address($billing_address, 'billing');
+                                $order->set_address($shipping_address, 'shipping');
+                            }
+                        }
+                    }
+
                     // If paid with Billmate Checkout, get payment method from Billmate order
                     if ( $checkout == true AND version_compare(WC_VERSION, '3.0.0', '>=') AND $method_id != get_post_meta($order_id, '_payment_method') ) {
                         $_method_title = $method_title;
@@ -774,11 +856,11 @@ function init_billmate_gateway() {
                                 && $storeOrderTotalCompare + 300 >= $billmateOrderTotalCompare
                         ) {
                             // Set order as paid if paid amount matches order total amount
+                            $order->payment_complete();
                             if ($this->order_status != 'default') {
                                 $order->update_status($this->order_status);
                                 $order->save();
                             }
-                            $order->payment_complete();
                         } else {
                             // To pay not match, maybe add handling fee to WC order
                             if (isset($billmateOrder['Cart']['Handling']['withouttax']) AND isset($billmateOrder['Cart']['Handling']['taxrate'])) {
@@ -855,7 +937,6 @@ function init_billmate_gateway() {
                                     }
 
                                     $order->payment_complete();
-
                                     if ($this->order_status != 'default') {
                                         $order->update_status($this->order_status);
                                         $order->save();
@@ -917,7 +998,7 @@ function init_billmate_gateway() {
 
                 if( $accept_url_hit ){
                     $redirect = '';
-                    $woocommerce->cart->empty_cart();
+                    WC()->cart->empty_cart();
                     delete_transient($transientPrefix.$order_id);
                     if(version_compare(WC_VERSION, '2.0.0', '<')){
                         $redirect = add_query_arg('key', $order->order_key, add_query_arg('order', $order_id, get_permalink(get_option('woocommerce_thanks_page_id'))));
@@ -935,7 +1016,7 @@ function init_billmate_gateway() {
 
             if( $accept_url_hit ) {
                 // Remove cart
-                $woocommerce->cart->empty_cart();
+                WC()->cart->empty_cart();
                 if(version_compare(WC_VERSION, '2.0.0', '<')){
                     $redirect = add_query_arg('key', $order->order_key, add_query_arg('order', $order_id, get_permalink(get_option('woocommerce_thanks_page_id'))));
                 } else {

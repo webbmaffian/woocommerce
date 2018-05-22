@@ -1,11 +1,15 @@
 <?php
-define('BILLPLUGIN_VERSION','3.1.1');
+define('BILLPLUGIN_VERSION','3.2.0');
 define('BILLMATE_CLIENT','PHP:Woocommerce:'.BILLPLUGIN_VERSION);
 define('BILLMATE_SERVER','2.1.9');
 
 require_once(BILLMATE_LIB . 'Billmate.php');
 require_once(BILLMATE_LIB . 'billmatecalc.php');
 require_once dirname( __FILE__ ) .'/utf8.php';
+
+if (!function_exists('is_plugin_active')) {
+    require_once(ABSPATH.'wp-admin/includes/plugin.php');
+}
 
 function convertToUTF8($str) {
     $enc = mb_detect_encoding($str);
@@ -1718,4 +1722,98 @@ if(!class_exists('BillmateProduct')) {
 
 
     }
+}
+
+
+if(!class_exists('BillmateAdminNotice')) {
+    class BillmateAdminNotice {
+
+        private static $instance;
+        public $notices;
+
+        public static function get_instance()
+        {
+            if (null === self::$instance) {
+                self::$instance = new self();
+            }
+            return self::$instance;
+        }
+
+        public function _add_notice($type = 'error', $notice = '', $link_url = '', $link_title = '') {
+            if ($notice != '') {
+                if (!isset($this->notices[$type])) {
+                    $this->notices[$type] = array();
+                }
+                // $this->notices[$type][] = $message;
+                $this->notices[$type][] = array(
+                    'title' => 'Billmate',
+                    'notice' => $notice,
+                    'link_url' => $link_url,
+                    'link_title' => $link_title
+                );
+            }
+        }
+
+        public function _get_notices() {
+            return $this->notices;
+        }
+
+        public static function add_error($notice = '', $link_url = '', $link_title = '') {
+            $instance = self::get_instance();
+            $instance->_add_notice('error', $notice, $link_url, $link_title);
+        }
+
+        public static function add_info($notice = '', $link_url = '', $link_title = '') {
+            $instance = self::get_instance();
+            $instance->_add_notice('info', $notice, $link_url, $link_title);
+        }
+
+        public static function add_success($notice = '', $link_url = '', $link_title = '') {
+            $instance = self::get_instance();
+            $instance->_add_notice('success', $notice, $link_url, $link_title);
+        }
+
+        public static function add_warning($notice = '', $link_url = '', $link_title = '') {
+            $instance = self::get_instance();
+            $instance->_add_notice('warning', $notice, $link_url, $link_title);
+        }
+
+
+        public static function show_notices() {
+            $instance = self::get_instance();
+
+            $notices = $instance->_get_notices();
+            if (is_array($notices) AND count($notices) > 0) {
+                foreach ($notices AS $type => $_notices) {
+                    $class = 'notice notice-info';
+                    if (in_array($type, array('info', 'error', 'success', 'warning'))) {
+                        $class = 'notice notice-'.$type;
+                    }
+
+                    foreach ($_notices AS $message) {
+                        if (is_array($message) AND isset($message['title']) AND isset($message['notice'])) {
+
+                            $link = '';
+                            if (    isset($message['link_title'])
+                                    && isset($message['link_url'])
+                                    && $message['link_title'] != ''
+                                    && $message['link_url'] != ''
+                            ) {
+                                $link = sprintf('<a href="%1$s">%2$s</a>',esc_html( $message['link_url'] ),esc_html( $message['link_title'] ));
+                            }
+
+                            printf(
+                                '<div class="%1$s"><p><strong>%2$s</strong> - %3$s '.$link.'</p></div>',
+                                esc_attr( $class ),
+                                $imgHtml .esc_html( $message['title'] ),
+                                esc_html( $message['notice'] )
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+    }
+
 }

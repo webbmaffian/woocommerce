@@ -68,13 +68,13 @@ class BillmateCommon {
 						$result = $billmate->activatePayment(array('PaymentData' => array('number' => $billmateInvoiceId)));
                         $result['message'] = isset($result['message']) ? utf8_encode($result['message']) : '';
 						if (isset($result['code'])) {
-                            $orderNote = sprintf(__('The order payment couldnt be activated, error code: %s error message: %s', 'billmate'), $result['code'], $result['message']);
+                            $orderNote = sprintf(__('Billmate: The order payment couldnt be activated, error code: %s error message: %s', 'billmate'), $result['code'], $result['message']);
 						} else {
-                            $orderNote = __('The order payment activated successfully', 'billmate');
+                            $orderNote = __('Billmate: The order payment activated successfully', 'billmate');
 						}
 					} elseif (isset($paymentInfo['code'])) {
                         $paymentInfo['message'] = utf8_encode($paymentInfo['message']);
-                        $orderNote = sprintf(__('The order payment couldnt be activated, error code: %s error message: %s', 'billmate'), $paymentInfo['code'], $paymentInfo['message']);
+                        $orderNote = sprintf(__('Billmate: The order payment couldnt be activated, error code: %s error message: %s', 'billmate'), $paymentInfo['code'], $paymentInfo['message']);
                     }
 
 				} else {
@@ -250,6 +250,7 @@ class BillmateCommon {
 		echo '<option value="active"'.$active.'>'.__('Active','billmate').'</option>';
 		echo '</select>';
 	}
+
     public function getaddress_callback()
     {
         $value = get_option('billmate_common_getaddress','');

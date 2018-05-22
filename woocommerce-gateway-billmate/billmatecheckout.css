@@ -1,13 +1,23 @@
+.billmate-checkout-another-payment-wrapper {
+    clear: both;
+    display: block;
+    float: right;
+    margin-bottom: 20px;
+}
+
 .cart_totals{
     margin: 30px 0 50px 0
 }
 
 
 #checkoutdiv {
-    position: relative;
+    clear: both;
+    display: block;
     overflow: auto;
+    position: relative;
 }
 
+form.woocommerce-shipping-calculator,
 .wc-proceed-to-checkout {
     display:none!important;
     height: 0px !important;
